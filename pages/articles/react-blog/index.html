@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Creating a blog with react and markdown · Random Bits</title>
+<meta name="description" content="How to create a blog by compiling markdown into html, highlighting code snippets, and rendering the html inside react.">
+<link rel="stylesheet" href="/_astro/_...slug_.2cf4b80f.css" />
+<link rel="stylesheet" href="/_astro/_...slug_.3c1e6a3e.css" /></head>
+<body>
+<main>
+    <div class="title-container">
+        <h1>Creating a blog with react and markdown</h1>
+        <p class="summary">Markdown is by far the best approach to writing static content, like blog posts. The markdown can be converted to HTML at build time, improving the application performance.</p>
+        <div class="meta-container">
+            <div class="meta date">
+                <date>last updated on 1/4/2022</date>
+            </div>
+            <div class="meta tags">
+                
+            </div>
+        </div>
+    </div><h2 id="intro">Intro</h2>
+<p>We are accustomed to separating data from code. When I was thinking about the architecture for a simple blog, I immediately
+assumed I would need a server side part to the application, with a database or the likes. But after doing a little
+pondering, there is a much simpler way.</p>
+<ol>
+<li>Use markdown to write the blog posts and push to the GIT repo</li>
+<li>At build time, convert the markdown to html, and also gather the metadata</li>
+<li>Use CI to build application and deploy live</li>
+</ol>
+<h2 id="using-markdown-to-write-blog-posts">Using markdown to write blog posts</h2>
+<p>Markdown is fast and simple. It includes everything you need in a developer blog: Code blocks, Images, Links, Embedded
+Code, etc.</p>
+<pre class="language-plaintext"><code class="language-plaintext"># This is a blog title
+
+This is a summary... </code></pre>
+<h2 id="converting-to-html">Converting to HTML</h2>
+<p>I’m using <a href="https://showdownjs.com/">showdown</a> for the markdown to html conversion. There were several libraries to
+choose from, and I just chose the one that looked the lightest and fastest.</p>
+<p>I created a script that would run at build time to convert the blogs and also gather the metadata for the article list
+page. I’ll let the code speak for itself:</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> fs <span class="token keyword">from</span> <span class="token string">&#39;fs&#39;</span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token operator">*</span> <span class="token keyword">as</span> path <span class="token keyword">from</span> <span class="token string">&#39;path&#39;</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> <span class="token punctuation">{</span><span class="token constant">EOL</span><span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">&#39;os&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> rootPath <span class="token operator">=</span> path<span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span>__dirname<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> showdown <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">&#39;showdown&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> converter <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">showdown<span class="token punctuation">.</span>Converter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token literal-property property">blogNames</span><span class="token operator">:</span> string<span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token operator">=</span> fs<span class="token punctuation">.</span><span class="token function">readdirSync</span><span class="token punctuation">(</span><span class="token string">&#39;./blogs&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> blogList <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+blogNames<span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token parameter">mdFileName</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> blogId <span class="token operator">=</span> mdFileName<span class="token punctuation">.</span><span class="token function">substring</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> mdFileName<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  
+  <span class="token comment">// read markdown file and stats</span>
+  <span class="token keyword">const</span> mdFilePath <span class="token operator">=</span> path<span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span>rootPath<span class="token punctuation">,</span> <span class="token string">&#39;blogs&#39;</span><span class="token punctuation">,</span> mdFileName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> mdStat <span class="token operator">=</span> fs<span class="token punctuation">.</span><span class="token function">statSync</span><span class="token punctuation">(</span>mdFilePath<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> mdContents <span class="token operator">=</span> fs<span class="token punctuation">.</span><span class="token function">readFileSync</span><span class="token punctuation">(</span>mdFilePath<span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token literal-property property">encoding</span><span class="token operator">:</span> <span class="token string">&#39;utf8&#39;</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> mdTitle <span class="token operator">=</span> mdContents<span class="token punctuation">.</span><span class="token function">substring</span><span class="token punctuation">(</span>mdContents<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">&#39;#&#39;</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">2</span><span class="token punctuation">,</span> mdContents<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token constant">EOL</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token comment">// write HTML file</span>
+  <span class="token keyword">const</span> htmlFileName <span class="token operator">=</span> blogId <span class="token operator">+</span> <span class="token string">&#39;.html&#39;</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> htmlFilePath <span class="token operator">=</span> path<span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span>rootPath<span class="token punctuation">,</span> <span class="token string">&#39;public/blogs&#39;</span><span class="token punctuation">,</span> htmlFileName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  fs<span class="token punctuation">.</span><span class="token function">writeFileSync</span><span class="token punctuation">(</span>htmlFilePath<span class="token punctuation">,</span> converter<span class="token punctuation">.</span><span class="token function">makeHtml</span><span class="token punctuation">(</span>mdContents<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token literal-property property">encoding</span><span class="token operator">:</span> <span class="token string">&#39;utf8&#39;</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  blogList<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">id</span><span class="token operator">:</span> blogId<span class="token punctuation">,</span>
+    <span class="token literal-property property">title</span><span class="token operator">:</span> mdTitle<span class="token punctuation">,</span>
+    <span class="token literal-property property">created</span><span class="token operator">:</span> mdStat<span class="token punctuation">.</span>ctime<span class="token punctuation">,</span>
+    <span class="token literal-property property">size</span><span class="token operator">:</span> mdStat<span class="token punctuation">.</span>size
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+fs<span class="token punctuation">.</span><span class="token function">writeFileSync</span><span class="token punctuation">(</span><span class="token string">&#39;src/generated/blog-list.json&#39;</span><span class="token punctuation">,</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>blogList<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token literal-property property">encoding</span><span class="token operator">:</span> <span class="token string">&#39;utf8&#39;</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+</code></pre>
+<h2 id="article-list-page">Article List Page</h2>
+<p>This page simply reads the metadata that we gathered about the blogs, and generates a list of the articles.
+If using typescript, make sure you set <code>&quot;resolveJsonModule&quot;: true</code> in tsconfig.json.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">import</span> articles <span class="token keyword">from</span> <span class="token string">&#39;generated/blog-list.json&#39;</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">ArticleList</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">&gt;</span>
+      <span class="token punctuation">{</span>
+        articles<span class="token punctuation">.</span><span class="token function">map</span><span class="token punctuation">(</span><span class="token parameter">articles</span> <span class="token operator">=&gt;</span> <span class="token operator">&lt;</span>a href<span class="token operator">=</span><span class="token punctuation">{</span><span class="token string">&#39;article/&#39;</span> <span class="token operator">+</span> blog<span class="token punctuation">.</span>id<span class="token punctuation">}</span><span class="token operator">&gt;</span><span class="token punctuation">{</span>blog<span class="token punctuation">.</span>title<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>a<span class="token operator">&gt;</span><span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">&gt;</span>
+  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="article-content-page">Article Content Page</h2>
+<p>Since the HTML of the article is static and doesn’t contain scripts, we can simply fetch the html and set it into the
+innerHTML property.</p>
+<p>Then I’m using highlight.js to syntax highlight the code blocks. The highlighting is completely optional but
+looks good.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">import</span> hljs <span class="token keyword">from</span> <span class="token string">&#39;highlight.js/lib/core&#39;</span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> javascript <span class="token keyword">from</span> <span class="token string">&#39;highlight.js/lib/languages/javascript&#39;</span><span class="token punctuation">;</span>
+hljs<span class="token punctuation">.</span><span class="token function">registerLanguage</span><span class="token punctuation">(</span><span class="token string">&#39;javascript&#39;</span><span class="token punctuation">,</span> javascript<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">Article</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> <span class="token punctuation">{</span>id<span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useParams</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> ref <span class="token operator">=</span> useRef<span class="token operator">&lt;</span>HTMLDivElement<span class="token operator">&gt;</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+    <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">&#39;/blogs/&#39;</span> <span class="token operator">+</span> id <span class="token operator">+</span> <span class="token string">&#39;.html&#39;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">res</span> <span class="token operator">=&gt;</span> res<span class="token punctuation">.</span><span class="token function">text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">html</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+      ref<span class="token punctuation">.</span>current<span class="token punctuation">.</span>innerHTML <span class="token operator">=</span> html<span class="token punctuation">;</span>
+      
+      <span class="token comment">// syntax highlight code blocks</span>
+      ref<span class="token punctuation">.</span>current<span class="token punctuation">.</span><span class="token function">querySelectorAll</span><span class="token punctuation">(</span><span class="token string">&#39;pre code&#39;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">el</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+        hljs<span class="token punctuation">.</span><span class="token function">highlightElement</span><span class="token punctuation">(</span>el<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div className<span class="token operator">=</span><span class="token string">&quot;article&quot;</span> ref<span class="token operator">=</span><span class="token punctuation">{</span>ref<span class="token punctuation">}</span><span class="token operator">&gt;</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">&gt;</span>
+  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="styling">Styling</h2>
+<p>For styling, you can create a single SASS file that is scoped to the <strong>.article</strong> classname.
+I normally use styled-components for styling, but of course that won’t work in this scenario, since the article HTML is plain HTML.</p>
+<pre class="language-scss"><code class="language-scss"><span class="token selector">.article </span><span class="token punctuation">{</span>
+  <span class="token property">font-family</span><span class="token punctuation">:</span> <span class="token string">&quot;Candara Light&quot;</span><span class="token punctuation">;</span>
+
+  <span class="token selector">h1 </span><span class="token punctuation">{</span>
+    <span class="token property">font-size</span><span class="token punctuation">:</span> 32px<span class="token punctuation">;</span>
+    <span class="token property">text-align</span><span class="token punctuation">:</span> center<span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token selector">p </span><span class="token punctuation">{</span>
+    <span class="token property">font-size</span><span class="token punctuation">:</span> 18px<span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token selector">code </span><span class="token punctuation">{</span>
+    <span class="token property">background-color</span><span class="token punctuation">:</span> #ddd<span class="token punctuation">;</span>
+    <span class="token property">border-radius</span><span class="token punctuation">:</span> 5px<span class="token punctuation">;</span>
+    <span class="token property">padding</span><span class="token punctuation">:</span> 10px<span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="ci-build">CI Build</h2>
+<p>Add an extra script in <code>package.json</code> for generating the article HTML:</p>
+<pre class="language-plaintext"><code class="language-plaintext">&quot;scripts&quot;: {
+    &quot;start&quot;: &quot;webpack serve&quot;,
+    &quot;build&quot;: &quot;webpack&quot;,
+    &quot;generate&quot;: &quot;ts-node scripts/generate.ts&quot;
+}</code></pre>
+<p>Use Github or another CI workflow to generate the html first, and then build:</p>
+<pre class="language-yaml"><code class="language-yaml"><span class="token key atrule">name</span><span class="token punctuation">:</span> Build
+
+<span class="token key atrule">on</span><span class="token punctuation">:</span>
+  <span class="token key atrule">push</span><span class="token punctuation">:</span>
+    <span class="token key atrule">branches</span><span class="token punctuation">:</span> <span class="token punctuation">[</span> <span class="token string">&quot;main&quot;</span> <span class="token punctuation">]</span>
+
+<span class="token key atrule">jobs</span><span class="token punctuation">:</span>
+  <span class="token key atrule">build</span><span class="token punctuation">:</span>
+    <span class="token key atrule">runs-on</span><span class="token punctuation">:</span> ubuntu<span class="token punctuation">-</span>latest
+    <span class="token key atrule">steps</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/checkout@v3
+      <span class="token punctuation">-</span> <span class="token key atrule">uses</span><span class="token punctuation">:</span> actions/setup<span class="token punctuation">-</span>node@v3
+        <span class="token key atrule">with</span><span class="token punctuation">:</span>
+          <span class="token key atrule">node-version</span><span class="token punctuation">:</span> <span class="token string">&#39;16&#39;</span>
+          <span class="token key atrule">cache</span><span class="token punctuation">:</span> <span class="token string">&#39;yarn&#39;</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">run</span><span class="token punctuation">:</span> yarn install <span class="token punctuation">-</span><span class="token punctuation">-</span>immutable
+      <span class="token punctuation">-</span> <span class="token key atrule">run</span><span class="token punctuation">:</span> yarn run generate
+      <span class="token punctuation">-</span> <span class="token key atrule">run</span><span class="token punctuation">:</span> yarn run build
+      </code></pre>
+<h2 id="why-react">Why React?</h2>
+<p>There is nothing dynamic about this webapp. You could use any framework, or no framework at all. I chose React because
+it is the simplest to get started.</p>
+</main>
+</body></html>

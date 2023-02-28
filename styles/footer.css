@@ -1,0 +1,28 @@
+footer {
+    margin-top: 30px;
+    border-top: 1px solid #ccc;
+    padding: 20px 0;
+}
+.footer-content {
+    display: flex;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: space-around;
+}
+.social-links {
+    display: flex;
+    padding: 10px;
+}
+.social-links a {
+    text-decoration: none;
+    color: #ccc;
+    padding: 0 10px;
+    fill: currentColor;
+}
+.social-links a img {
+    filter: invert(.3);
+}
+.copyright {
+    text-align: center;
+}

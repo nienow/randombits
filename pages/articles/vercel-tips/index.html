@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Vercel Configuration Guide without NextJS · Random Bits</title>
+<meta name="description" content="Configuration guide for deploying to Vercel without using NextJS. Rewrites for SPAs, Serverless Functions, and Caching.">
+<link rel="stylesheet" href="/_astro/_...slug_.2cf4b80f.css" />
+<link rel="stylesheet" href="/_astro/_...slug_.3c1e6a3e.css" /></head>
+<body>
+<main>
+    <div class="title-container">
+        <h1>Vercel Configuration Guide without NextJS</h1>
+        <p class="summary">Even if you are not using the NextJS framework, Vercel is a great option for running your static or nodejs applications. It is super easy to get started, and its fast and free. This guide is intended to show you some common configuration settings for your production application.</p>
+        <div class="meta-container">
+            <div class="meta date">
+                <date>last updated on 1/31/2023</date>
+            </div>
+            <div class="meta tags">
+                
+            </div>
+        </div>
+    </div><h2 id="rewrites-for-single-page-application">Rewrites for Single Page Application</h2>
+<p>When I first deployed my Simple Page Application (SPA) to Vercel, it looked great.
+But when I refreshed the page on any page but the homepage, I received an error page - <strong>404 - This page could not be found</strong>.
+The url was <code>randombits.dev/articles</code>, so the server was looking for a file called <code>/articles/index.html</code>.
+But I have only 1 html file at the root location, so it gave the 404 error.</p>
+<p>The solution is easy. You need to tell Vercel to rewrite the request to the root <code>index.html</code> file no matter what path was asked for:</p>
+<pre class="language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">&quot;rewrites&quot;</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span> <span class="token property">&quot;source&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/(.*)&quot;</span><span class="token punctuation">,</span> <span class="token property">&quot;destination&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/&quot;</span> <span class="token punctuation">}</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Vercel will prioritize the file system first: if the path exists, it will return the file,
+Otherwise, it will rewrite the url.
+That way you can keep the rule simple and still fetch static assets like JS and image files.</p>
+<p>If you have apis deployed on the same host, you can change the rewrite to the following:</p>
+<pre class="language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">&quot;rewrites&quot;</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span> <span class="token property">&quot;source&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/(?!api\/.*).*/&quot;</span><span class="token punctuation">,</span> <span class="token property">&quot;destination&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/&quot;</span> <span class="token punctuation">}</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">}</span></code></pre>
+<p>This will match everything except the /api path.</p>
+<h2 id="deploying-serverless-functions">Deploying Serverless Functions</h2>
+<p>If you have an <code>api</code> directory in your project, Vercel will automatically deploy the contents as serverless functions.
+The path of the API endpoint will be the same as the path of the file system. For example:</p>
+<ul>
+<li>/api/index.js =&gt; /api</li>
+<li>/api/login.js =&gt; /api/login</li>
+<li>/api/user/index.js =&gt; /api/user</li>
+<li>/api/user/[id].js =&gt; /api/user/45</li>
+</ul>
+<p>Serverless Function example:</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span> <span class="token function">handler</span><span class="token punctuation">(</span><span class="token parameter">request<span class="token punctuation">,</span> response</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  response<span class="token punctuation">.</span><span class="token function">status</span><span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">json</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">text</span><span class="token operator">:</span> <span class="token string">&#39;Hello World&#39;</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="change-the-base-api-path">Change the base /api path</h3>
+<p>Unfortunately, you cannot change the base /api path.
+However, you can rewrite the url in your <code>vercel.json</code> settings file:</p>
+<pre class="language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">&quot;rewrites&quot;</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span> <span class="token property">&quot;source&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/rest&quot;</span><span class="token punctuation">,</span> <span class="token property">&quot;destination&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/api&quot;</span> <span class="token punctuation">}</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="changing-caching-rules">Changing Caching Rules</h2>
+<p>By default, Vercel puts a max-age of 0 on all assets, which means the browser won’t cache them.
+The reason for this is so that when a new deployment is made, users get the new version right away.</p>
+<p>But if your like me, and you use proper cache busting techniques, you will want to change these settings.
+I have webpack generating the <strong>content hash</strong> for the file name of all my JS/CSS files:</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token literal-property property">output</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+  <span class="token literal-property property">filename</span><span class="token operator">:</span> <span class="token string">&quot;[contenthash].js&quot;</span> <span class="token comment">// d0fb3aa6b14ecb0578b5.js</span>
+<span class="token punctuation">}</span></code></pre>
+<p>The filename is generated based on the content of the file, so if the content changes, the name will change.
+When I update code and redeploy, the file name is different, so the cached content cannot be returned to the user.
+Therefore, you can change the <strong>Cache-Control</strong> settings to use a very long <strong>max-age</strong> value, and the <strong>immutable</strong> keyword, effectively telling the browser the file will never change.</p>
+<pre class="language-json"><code class="language-json"><span class="token punctuation">{</span>
+  <span class="token property">&quot;headers&quot;</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span>
+      <span class="token property">&quot;source&quot;</span><span class="token operator">:</span> <span class="token string">&quot;/(.*)&quot;</span><span class="token punctuation">,</span>
+      <span class="token property">&quot;headers&quot;</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token punctuation">{</span>
+          <span class="token property">&quot;key&quot;</span><span class="token operator">:</span> <span class="token string">&quot;Cache-Control&quot;</span><span class="token punctuation">,</span>
+          <span class="token property">&quot;value&quot;</span><span class="token operator">:</span> <span class="token string">&quot;public, max-age=31536000, immutable&quot;</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">]</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">}</span></code></pre>
+<p>The reason you need both max-age and immutable is that the immutable keyword is not well-supported in browsers yet.</p>
+<p>The current example is modifying the cache settings for all served files.
+But by changing the source pattern, you can adjust which files you want to target.</p>
+<h2 id="closing-thoughts">Closing Thoughts</h2>
+<p>While Vercel is a great experience for simple applications that fit the typical nodejs structure,
+its lack of customizability for building/deploying can be frustrating for more complex applications.
+If you want to have full control over your rewrites, api paths, headers, etc, I would suggest a more full-featured
+platform like Google Cloud Run.</p>
+</main>
+</body></html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>The ultimate guide to number input localization · Random Bits</title>
+<meta name="description" content="How to localize number inputs or currency inputs. Examples in react and angular.">
+<link rel="stylesheet" href="/_astro/_...slug_.2cf4b80f.css" />
+<link rel="stylesheet" href="/_astro/_...slug_.3c1e6a3e.css" /></head>
+<body>
+<main>
+    <div class="title-container">
+        <h1>The ultimate guide to number input localization</h1>
+        <p class="summary">Built-in browser support for number localization is getting better, but it is still lacking for number inputs. This guide shows a simple way to handle number input localization, without any libraries. It is especially useful if your application allows the user to modify their preferred locale, instead of using the browser locale.</p>
+        <div class="meta-container">
+            <div class="meta date">
+                <date>last updated on 2/14/2023</date>
+            </div>
+            <div class="meta tags">
+                <div class="tag">i18n</div><div class="tag">react</div><div class="tag">angular</div>
+            </div>
+        </div>
+    </div><h2 id="inputs-with-type-number">Inputs with type number</h2>
+<p>Using <code>&lt;input type=&quot;number&quot;/&gt;</code> only parses numbers in the browser’s locale.
+Also, there are some cases where it doesn’t play well with group separators (thousand separators).</p>
+<p>This is fine for many applications, since the user most likely only wants to work in their one locale.
+And most users would not be entering a number with group separators.</p>
+<p>However, I’ve worked on several CRM applications that allowed the user to switch the locale they wanted to work in. After having to implement this ability several times in the frontend, I’ve come up with an easy and elegant solution.</p>
+<h2 id="basic-requirements">Basic Requirements</h2>
+<p>To allow a user to input numbers in a different format, we need the following:</p>
+<ol>
+<li>An input of type <em>text</em>, since the number can contain symbols that are not allowed in type <em>number</em></li>
+<li>A method to parse the user input to a javascript number</li>
+<li>Unless the input will always start out blank, a method to format the initial server side value to the locale formatted value</li>
+</ol>
+<h2 id="formatting-a-number">Formatting a number</h2>
+<p>Its easy to format a number in any locale. You can use</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">formatNumber</span><span class="token punctuation">(</span><span class="token parameter">value</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> Intl<span class="token punctuation">.</span><span class="token function">NumberFormat</span><span class="token punctuation">(</span><span class="token string">&#39;de-DE&#39;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">format</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">formatNumber</span><span class="token punctuation">(</span><span class="token number">1234.56</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 1.234,56</span></code></pre>
+<h2 id="parsing-a-number">Parsing a number</h2>
+<p>It’s not so easy to parse a number in any locale, since there isn’t an API for that. We need to figure out the <strong>group</strong> symbol and the <strong>decimal</strong> symbol of the locale. For example, here are the symbols for the following locales:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Locale</th><th>Example</th><th>Group Symbol</th><th>Decimal Symbol</th></tr></thead><tbody><tr><td>en-US</td><td>1,234.56</td><td>, (comma)</td><td>. (period)</td></tr><tr><td>de-DE</td><td>1.234,56</td><td>. (period)</td><td>, (comma)</td></tr><tr><td>fr-CA</td><td>1 234,56</td><td>(space)</td><td>, (comma)</td></tr></tbody></table>
+<p>In order to determine these symbols, we first format a number from that locale.
+Then we can parse the output to determine the symbols:</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> parts <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Intl<span class="token punctuation">.</span>NumberFormat</span><span class="token punctuation">(</span><span class="token string">&#39;de-DE&#39;</span><span class="token punctuation">,</span> <span class="token punctuation">{</span><span class="token literal-property property">style</span><span class="token operator">:</span> <span class="token string">&#39;decimal&#39;</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">formatToParts</span><span class="token punctuation">(</span><span class="token number">1111.11</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> groupPart <span class="token operator">=</span> parts<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> d<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">&#39;group&#39;</span><span class="token punctuation">)</span><span class="token operator">?.</span>value<span class="token punctuation">;</span>
+<span class="token keyword">const</span> decimalPart <span class="token operator">=</span> parts<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">d</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> d<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">&#39;decimal&#39;</span><span class="token punctuation">)</span><span class="token punctuation">.</span>value<span class="token punctuation">;</span></code></pre>
+<p>Now we know the symbols for the locale. So now lets parse something:</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">function</span> <span class="token function">parseInput</span><span class="token punctuation">(</span><span class="token parameter">value</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment">// check if negative</span>
+    <span class="token keyword">const</span> isNegative <span class="token operator">=</span> <span class="token punctuation">(</span>value<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">&#39;-&#39;</span><span class="token punctuation">)</span> <span class="token operator">&gt;=</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// remove group symbols</span>
+    value <span class="token operator">=</span> value<span class="token punctuation">.</span><span class="token function">replaceAll</span><span class="token punctuation">(</span>groupPart<span class="token punctuation">,</span> <span class="token string">&#39;&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// remove spaces, this helps with some locales that have spaces between a minus symbol </span>
+    <span class="token comment">// and the number, or different types of space characters</span>
+    value <span class="token operator">=</span> value<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">\s</span><span class="token regex-delimiter">/</span><span class="token regex-flags">g</span></span><span class="token punctuation">,</span> <span class="token string">&#39;&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// remove minus symbols. some locales have minus symbols after the number</span>
+    value <span class="token operator">=</span> value<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^-</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">&#39;&#39;</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">-$</span><span class="token regex-delimiter">/</span></span><span class="token punctuation">,</span> <span class="token string">&#39;&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// replace decimal symbol with &quot;.&quot;</span>
+    value <span class="token operator">=</span> value<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span>decimalPart<span class="token punctuation">,</span> <span class="token string">&#39;.&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>isNegative<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        value <span class="token operator">=</span> <span class="token string">&#39;-&#39;</span> <span class="token operator">+</span> value<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment">// convert to number type</span>
+    value <span class="token operator">=</span> <span class="token function">Number</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">parseInput</span><span class="token punctuation">(</span><span class="token string">&#39;1.234,56&#39;</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 1234.56</span></code></pre>
+<h2 id="localizing-a-number-input-in-react">Localizing a number input in react</h2>
+<p>Now we can create a simple react component, which references the functions from above.
+The value in the state is the value of type number.
+Everytime the number input is changed, we will parse it, and set it on the state.
+Which will re-format the number into the input.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> valueFromServer <span class="token operator">=</span> <span class="token number">1234.56</span><span class="token punctuation">;</span>
+<span class="token keyword">export</span> <span class="token keyword">default</span> <span class="token keyword">function</span> <span class="token function">NumberInput</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> <span class="token punctuation">[</span>value<span class="token punctuation">,</span> setValue<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span>valueFromServer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">const</span> <span class="token function-variable function">handleChange</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+    <span class="token function">setValue</span><span class="token punctuation">(</span><span class="token function">parseInput</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>target<span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token operator">&lt;</span>div<span class="token operator">&gt;</span>
+      <span class="token operator">&lt;</span>input type<span class="token operator">=</span><span class="token string">&quot;text&quot;</span> value<span class="token operator">=</span><span class="token punctuation">{</span><span class="token function">formatNumber</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">}</span> onChange<span class="token operator">=</span><span class="token punctuation">{</span>handleChange<span class="token punctuation">}</span><span class="token operator">/</span><span class="token operator">&gt;</span>
+      <span class="token operator">&lt;</span>div<span class="token operator">&gt;</span>Number value<span class="token operator">:</span> <span class="token punctuation">{</span>value<span class="token punctuation">}</span><span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">&gt;</span>
+    <span class="token operator">&lt;</span><span class="token operator">/</span>div<span class="token operator">&gt;</span>
+  <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="localizing-a-number-input-in-angular">Localizing a number input in angular</h2>
+<p>I published a NPM package for angular called <em>ngx-decimal</em>: <a href="https://www.npmjs.com/package/ngx-decimal">https://www.npmjs.com/package/ngx-decimal</a></p>
+<p>It handles everything for you. Example usage is:</p>
+<pre class="language-html"><code class="language-html"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">&quot;</span>text<span class="token punctuation">&quot;</span></span> <span class="token attr-name">ngxDecimal</span> <span class="token attr-name">[(ngModel)]</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">&quot;</span>numberValue<span class="token punctuation">&quot;</span></span><span class="token punctuation">&gt;</span></span></code></pre>
+<h2 id="things-to-note">Things to note</h2>
+<ol>
+<li>This doesn’t handle locales that use different number symbols (like Bengali–Assamese).</li>
+<li>It is a bit too lenient in parsing. For example, it will allow all locales to use a minus sign after the number.</li>
+</ol>
+<h2 id="summary">Summary</h2>
+<p>This solution has worked well in multiple enterprise web applications.
+It could be improved, to handle every locale perfectly, but at the cost of higher complexity.</p>
+</main>
+</body></html>

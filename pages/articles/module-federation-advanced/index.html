@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Advanced Guide to Module Federation · Random Bits</title>
+<meta name="description">
+<link rel="stylesheet" href="/_astro/_...slug_.2cf4b80f.css" />
+<link rel="stylesheet" href="/_astro/_...slug_.3c1e6a3e.css" /></head>
+<body>
+<main>
+    <div class="title-container">
+        <h1>Advanced Guide to Module Federation</h1>
+        <p class="summary">There are plenty of articles about setting up Webpack&#39;s Module Federation. But almost all the articles focus on the basics. Here I will go over steps you want to consider in a production app.</p>
+        <div class="meta-container">
+            <div class="meta date">
+                <date>last updated on 12/31/2022</date>
+            </div>
+            <div class="meta tags">
+                
+            </div>
+        </div>
+    </div><p>There are plenty of articles about setting up Webpack’s Module Federation.
+But almost all the articles focus on the basics.
+Here I will go over steps you want to consider in a production app.</p>
+<h2 id="dynamic-imports">Dynamic Imports</h2>
+<p>Most examples show using the <em>remotes</em> array to specify remote apps:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token literal-property property">remotes</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token literal-property property">app1</span><span class="token operator">:</span> <span class="token string">'app1@http://localhost:3001/remoteEntry.js'</span>
+<span class="token punctuation">}</span></code></pre>
+<p>This simply tells webpack to fetch <em>app1</em> at given address when the container app loads.</p>
+<p>There are a few limitations in this approach:</p>
+<p><strong>The <em>remoteEntry.js</em> files get fetched immediately when your container app loads.</strong>
+This is not ideal if you have a large list of remotes, or you have remotes that will never load for the user.</p>
+<p><strong>The browser may cache the file.</strong>
+Since there is not a version or timestamp in the URL, the browser can cache the file, and users will not receive new
+deployments immediately.</p>
+<p><strong>Your options for dynamically setting the URL is more limited.</strong>
+You may want to change remote urls without needing a redeployment. This could be how you roll out production updates.
+Or maybe you need to change the url of the remote depending on the region the user is in.</p>
+<h2 id="dynamic-imports-script">Dynamic Imports Script</h2>
+<p>To implement dynamic imports, you will want to create a utility script like the following:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">declare</span> global <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token function-variable function">__webpack_init_sharing__</span><span class="token operator">:</span> <span class="token punctuation">(</span>parameter<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token builtin">Promise</span><span class="token operator">&#x3C;</span><span class="token keyword">void</span><span class="token operator">></span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> __webpack_share_scopes__<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token keyword">default</span><span class="token operator">:</span> <span class="token builtin">any</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> __webpack_require__<span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token function-variable function">l</span><span class="token operator">:</span> <span class="token punctuation">(</span>url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token function-variable function">cb</span><span class="token operator">:</span> <span class="token punctuation">(</span>event<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">void</span><span class="token punctuation">,</span> id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span><span class="token punctuation">}</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">loadRemote</span> <span class="token operator">=</span> <span class="token punctuation">(</span>url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> scope<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+    <span class="token keyword">new</span> <span class="token class-name"><span class="token builtin">Promise</span><span class="token operator">&#x3C;</span><span class="token keyword">void</span><span class="token operator">></span></span><span class="token punctuation">(</span><span class="token punctuation">(</span>resolve<span class="token punctuation">,</span> reject<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token keyword">const</span> timestamp <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">?t=</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">new</span> <span class="token class-name">Date</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">getTime</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+        __webpack_require__<span class="token punctuation">.</span><span class="token function">l</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>url<span class="token interpolation-punctuation punctuation">}</span></span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>timestamp<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span> <span class="token punctuation">(</span>event<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span>event<span class="token operator">?.</span>type <span class="token operator">===</span> <span class="token string">'load'</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                    <span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+                    <span class="token function">reject</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Loading script failed: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>event<span class="token operator">?.</span>target<span class="token operator">?.</span>src<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">}</span>
+            <span class="token punctuation">}</span><span class="token punctuation">,</span>
+            scope<span class="token punctuation">,</span>
+        <span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">initSharing</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>__webpack_share_scopes__<span class="token operator">?.</span>default<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">await</span> <span class="token function">__webpack_init_sharing__</span><span class="token punctuation">(</span><span class="token string">'default'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> <span class="token function-variable function">initContainer</span> <span class="token operator">=</span> <span class="token keyword">async</span> <span class="token punctuation">(</span>containerScope<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>containerScope<span class="token punctuation">.</span>__initialized <span class="token operator">&#x26;&#x26;</span> <span class="token operator">!</span>containerScope<span class="token punctuation">.</span>__initializing<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        containerScope<span class="token punctuation">.</span>__initializing <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        <span class="token keyword">await</span> containerScope<span class="token punctuation">.</span><span class="token function">init</span><span class="token punctuation">(</span>__webpack_share_scopes__<span class="token punctuation">.</span>default<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        containerScope<span class="token punctuation">.</span>__initialized <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        <span class="token keyword">delete</span> containerScope<span class="token punctuation">.</span>__initializing<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">const</span> importRemote <span class="token operator">=</span> <span class="token generic-function"><span class="token function">async</span> <span class="token generic class-name"><span class="token operator">&#x3C;</span><span class="token constant">T</span><span class="token operator">></span></span></span><span class="token punctuation">(</span>url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> scope<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> module<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&#x3C;</span><span class="token constant">T</span><span class="token operator">></span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>window<span class="token punctuation">[</span>scope<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token comment">// Load the remote and initialize the share scope if it's empty</span>
+        <span class="token keyword">await</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token function">loadRemote</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> scope<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">initSharing</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>window<span class="token punctuation">[</span>scope<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span>
+                <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>scope<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> not found on window object</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
+            <span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        <span class="token comment">// Initialize the container to get shared modules and get the module factory:</span>
+        <span class="token keyword">const</span> <span class="token punctuation">[</span><span class="token punctuation">,</span> moduleFactory<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token builtin">Promise</span><span class="token punctuation">.</span><span class="token function">all</span><span class="token punctuation">(</span><span class="token punctuation">[</span>
+            <span class="token function">initContainer</span><span class="token punctuation">(</span>window<span class="token punctuation">[</span>scope<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            window<span class="token punctuation">[</span>scope<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>module<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'./'</span><span class="token punctuation">)</span> <span class="token operator">?</span> module <span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">./</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">module</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token function">moduleFactory</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+        <span class="token keyword">const</span> moduleFactory <span class="token operator">=</span> <span class="token keyword">await</span> window<span class="token punctuation">[</span>scope<span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>module<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'./'</span><span class="token punctuation">)</span> <span class="token operator">?</span> module <span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">./</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">module</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token function">moduleFactory</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>You can then pull in a remote app like:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token function">importRemote</span><span class="token punctuation">(</span><span class="token string">'http://localhost:3001/remoteEntry.js'</span><span class="token punctuation">,</span> <span class="token string">'app1'</span><span class="token punctuation">,</span> <span class="token string">'bootstrap'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span>result<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">setArticles</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<p>For reference, here would be the webpack config for the remote app:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">new</span> <span class="token class-name">ModuleFederationPlugin</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">"app1"</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">filename</span><span class="token operator">:</span> <span class="token string">"remoteEntry.js"</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">exposes</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token string-property property">'./bootstrap'</span><span class="token operator">:</span> <span class="token string">'./src/bootstrap'</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span></code></pre>
+<p>If you store your remote urls in environment variables or another method of configuration, you can then make a helper
+function:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">export</span> <span class="token keyword">const</span> importRemoteByName <span class="token operator">=</span> <span class="token punctuation">(</span>remoteName<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> module <span class="token operator">=</span> <span class="token string">'bootstrap'</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token constant">REMOTE_URLS</span><span class="token punctuation">[</span>remoteName<span class="token punctuation">]</span> <span class="token operator">+</span> <span class="token string">'/remoteEntry.js'</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token function">importRemote</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> remoteName<span class="token punctuation">,</span> module<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<blockquote>
+<p>When using dynamic imports, you don’t even have to use the ModuleFederationPlugin in your top level app.
+Although you still may want to if you are sharing dependencies.</p>
+</blockquote>
+<h2 id="shared-libraries">Shared Libraries</h2>
+<h2 id="sharing-static-files">Sharing Static Files</h2>
+<p>You can expose static files like JSON to share with other apps.</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">new</span> <span class="token class-name">ModuleFederationPlugin</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">"app1"</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">filename</span><span class="token operator">:</span> <span class="token string">"remoteEntry.js"</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">exposes</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token string-property property">'./bootstrap'</span><span class="token operator">:</span> <span class="token string">'./src/bootstrap'</span><span class="token punctuation">,</span>
+        <span class="token string-property property">'./metadata'</span><span class="token operator">:</span> <span class="token string">'./src/metadata.json'</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span></code></pre>
+<p>To use, simply change the module name:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token function">importRemote</span><span class="token punctuation">(</span><span class="token string">'http://localhost:3001/remoteEntry.js'</span><span class="token punctuation">,</span> <span class="token string">'app1'</span><span class="token punctuation">,</span> <span class="token string">'metadata'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span>metadata<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token builtin">console</span><span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>metadata<span class="token punctuation">.</span>name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<p>Don’t worry, remoteEntry.js will <strong>NOT</strong> be fetched every time you call importRemote, it is automatically cached via our
+script above.</p>
+<h2 id="use-web-components">Use Web Components</h2>
+<p>I found that the simplest way to use module federation is to have my remote applications expose web components.</p>
+<p>For example, here is my <strong>bootstrap.tsx</strong> file for a remote:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>window<span class="token punctuation">.</span>customElements<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token string">'app1'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">class</span> <span class="token class-name">App1</span> <span class="token keyword">extends</span> <span class="token class-name">HTMLElement</span> <span class="token punctuation">{</span>
+        <span class="token keyword">private</span> <span class="token literal-property property">reactRoot</span><span class="token operator">:</span> Root <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+        <span class="token function">connectedCallback</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">this</span><span class="token punctuation">.</span>reactRoot <span class="token operator">=</span> <span class="token function">createRoot</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">this</span><span class="token punctuation">.</span>reactRoot<span class="token punctuation">.</span><span class="token function">render</span><span class="token punctuation">(</span><span class="token operator">&#x3C;</span>App<span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token function">disconnectedCallback</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token function">setTimeout</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+                <span class="token keyword">this</span><span class="token punctuation">.</span>reactRoot<span class="token punctuation">.</span><span class="token function">unmount</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">this</span><span class="token punctuation">.</span>reactRoot <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+
+    window<span class="token punctuation">.</span>customElements<span class="token punctuation">.</span><span class="token function">define</span><span class="token punctuation">(</span><span class="token string">'app1'</span><span class="token punctuation">,</span> App1<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>This is how my container application loads the remote:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">RemoteApp1</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token function">importRemote</span><span class="token punctuation">(</span><span class="token string">'http://localhost:3001/remoteEntry.js'</span><span class="token punctuation">,</span> <span class="token string">'app1'</span><span class="token punctuation">,</span> <span class="token string">'bootstrap'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token operator">&#x3C;</span>app1<span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>That’s it!. Because your using web components, you don’t need to wait for the remote import to resolve.
+You can simply render <code>&#x3C;app1/></code>, which will be an empty element until the remote app is loaded, and the web component
+populates.</p>
+<p>Web components also makes it easier to create a generic component that will load remote applications:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">RemoteApp</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span>appName<span class="token punctuation">,</span> params<span class="token punctuation">}</span><span class="token operator">:</span> Params</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token function">importRemoteByName</span><span class="token punctuation">(</span>appName<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">catch</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+            <span class="token comment">// handle error if needed</span>
+        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> CustomElement <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">remote-</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span>appName<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token operator">&#x3C;</span>CustomElement <span class="token punctuation">{</span><span class="token operator">...</span>params<span class="token punctuation">}</span><span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<h2 id="custom-router-that-resolves-remote-routes">Custom router that resolves remote routes</h2>
+<p>If you have routes that display a remote application, you will notice that the page is blank for a second before the
+application populates.
+This is because the route transitions immediately, and the remote application is loaded afterwards.
+A better experience would be to load the remote before transitioning to the new route.
+And to accomplish this you need to implement a custom router. Don’t worry, it’s easy.</p>
+<p>Say we want the following routes:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token constant">ROUTES</span> <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span>
+        path<span class="token operator">:</span> <span class="token string">'/'</span><span class="token punctuation">,</span>
+        element<span class="token operator">:</span> <span class="token operator">&#x3C;</span>HomePage<span class="token operator">/</span><span class="token operator">></span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token punctuation">{</span>
+        path<span class="token operator">:</span> <span class="token string">'/app1'</span><span class="token punctuation">,</span>
+        remote<span class="token operator">:</span> <span class="token string">'app1'</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span></code></pre>
+<p>We can either define an element to render, or a remote application to render.
+We can also define both an element and a remote, if we have the scenario where we are rendering a local element that
+contains a remote application.
+Then we can still preload the remote, and improve the performance.</p>
+<p>Here is the router, which defines a context:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">export</span> <span class="token keyword">interface</span> <span class="token class-name">IRoute</span> <span class="token punctuation">{</span>
+    path<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+    element<span class="token operator">?</span><span class="token operator">:</span> <span class="token constant">JSX</span><span class="token punctuation">.</span>Element<span class="token punctuation">;</span>
+    remote<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+    params<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token punctuation">[</span>key<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">]</span><span class="token operator">:</span> <span class="token builtin">any</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">interface</span> <span class="token class-name">IRouterContext</span> <span class="token punctuation">{</span>
+    url<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
+    routes<span class="token operator">:</span> <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> element<span class="token operator">:</span> <span class="token builtin">any</span> <span class="token punctuation">}</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token function-variable function">navigate</span><span class="token operator">:</span> <span class="token punctuation">(</span>newUrl<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">void</span><span class="token punctuation">;</span>
+    current<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">;</span>
+    params<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">const</span> <span class="token constant">GLOBAL_ROUTE_CONTEXT</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    url<span class="token operator">:</span> location<span class="token punctuation">.</span>pathname<span class="token punctuation">,</span>
+    routes<span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    navigate<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+    current<span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+    params<span class="token operator">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> RouterContext <span class="token operator">=</span> <span class="token generic-function"><span class="token function">createContext</span><span class="token generic class-name"><span class="token operator">&#x3C;</span>IRouterContext<span class="token operator">></span></span></span><span class="token punctuation">(</span><span class="token constant">GLOBAL_ROUTE_CONTEXT</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">export</span> <span class="token keyword">const</span> <span class="token function-variable function">useRouter</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token function">useContext</span><span class="token punctuation">(</span>RouterContext<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">Router</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">{</span>routes<span class="token punctuation">,</span> children<span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token punctuation">[</span>url<span class="token punctuation">,</span> setUrl<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>pathname<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> <span class="token punctuation">[</span>current<span class="token punctuation">,</span> setCurrent<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token generic-function"><span class="token function">useState</span><span class="token generic class-name"><span class="token operator">&#x3C;</span>IRoute<span class="token operator">></span></span></span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> <span class="token punctuation">[</span>params<span class="token punctuation">,</span> setParams<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token generic-function"><span class="token function">useState</span><span class="token generic class-name"><span class="token operator">&#x3C;</span><span class="token builtin">any</span><span class="token operator">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> <span class="token function-variable function">calcRoute</span> <span class="token operator">=</span> <span class="token punctuation">(</span>newUrl<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token function">setUrl</span><span class="token punctuation">(</span>newUrl<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">let</span> newParams<span class="token punctuation">;</span>
+        <span class="token keyword">const</span> newCurrent <span class="token operator">=</span> routes<span class="token punctuation">.</span><span class="token function">find</span><span class="token punctuation">(</span>child <span class="token operator">=></span> <span class="token punctuation">{</span>
+            newParams <span class="token operator">=</span> <span class="token function">routeTest</span><span class="token punctuation">(</span>newUrl<span class="token punctuation">,</span> child<span class="token punctuation">.</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span> <span class="token operator">!</span><span class="token operator">!</span>newParams<span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>current <span class="token operator">!==</span> newCurrent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>newCurrent<span class="token punctuation">.</span>remote<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                <span class="token function">importRemote</span><span class="token punctuation">(</span>newCurrent<span class="token punctuation">.</span>remote<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+                    <span class="token function">setCurrent</span><span class="token punctuation">(</span>newCurrent<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token function">setParams</span><span class="token punctuation">(</span>newParams<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+                <span class="token function">setCurrent</span><span class="token punctuation">(</span>newCurrent<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token function">setParams</span><span class="token punctuation">(</span>newParams<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> <span class="token function-variable function">navigate</span> <span class="token operator">=</span> <span class="token punctuation">(</span>newUrl<span class="token punctuation">,</span> skipHistory <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>skipHistory<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            window<span class="token punctuation">.</span>history<span class="token punctuation">.</span><span class="token function">pushState</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">,</span> newUrl<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        <span class="token function">calcRoute</span><span class="token punctuation">(</span>newUrl<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">const</span> <span class="token function-variable function">onPopState</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token function">navigate</span><span class="token punctuation">(</span>location<span class="token punctuation">.</span>pathname<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+    <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        window<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">'popstate'</span><span class="token punctuation">,</span> onPopState<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+            window<span class="token punctuation">.</span><span class="token function">removeEventListener</span><span class="token punctuation">(</span><span class="token string">'popstate'</span><span class="token punctuation">,</span> onPopState<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>current<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">useEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+        <span class="token function">calcRoute</span><span class="token punctuation">(</span>url<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+        <span class="token operator">&#x3C;</span>RouterContext<span class="token punctuation">.</span>Provider value<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span>url<span class="token punctuation">,</span> routes<span class="token punctuation">,</span> current<span class="token punctuation">,</span> params<span class="token punctuation">,</span> navigate<span class="token punctuation">}</span><span class="token punctuation">}</span><span class="token operator">></span><span class="token punctuation">{</span>children<span class="token punctuation">}</span><span class="token operator">&#x3C;</span><span class="token operator">/</span>RouterContext<span class="token punctuation">.</span>Provider<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Here is the router outlet component:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">const</span> <span class="token function-variable function">getElementToRender</span> <span class="token operator">=</span> <span class="token punctuation">(</span>current<span class="token operator">:</span> IRoute<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>current<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>current<span class="token punctuation">.</span>element<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">return</span> current<span class="token punctuation">.</span>element<span class="token punctuation">;</span>
+        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>current<span class="token punctuation">.</span>remote<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">return</span> <span class="token operator">&#x3C;</span>RemoteApp key<span class="token operator">=</span><span class="token punctuation">{</span>current<span class="token punctuation">.</span>path<span class="token punctuation">}</span> appName<span class="token operator">=</span><span class="token punctuation">{</span>current<span class="token punctuation">.</span>remote<span class="token punctuation">}</span> params<span class="token operator">=</span><span class="token punctuation">{</span>current<span class="token punctuation">.</span>params<span class="token punctuation">}</span><span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+    <span class="token keyword">return</span> <span class="token operator">&#x3C;</span>div<span class="token operator">></span>Not found<span class="token operator">&#x3C;</span><span class="token operator">/</span>div<span class="token operator">></span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token function-variable function">RouterOutlet</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token punctuation">{</span>current<span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">useRouter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>
+        <span class="token operator">&#x3C;</span>OutletContainer id<span class="token operator">=</span><span class="token string">"outlet"</span><span class="token operator">></span><span class="token punctuation">{</span><span class="token function">getElementToRender</span><span class="token punctuation">(</span>current<span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token operator">&#x3C;</span><span class="token operator">/</span>OutletContainer<span class="token operator">></span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Now we can define our main <strong>App.tsx</strong> file:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">const</span> <span class="token function-variable function">App</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token operator">&#x3C;</span>Router routes<span class="token operator">=</span><span class="token punctuation">{</span><span class="token constant">ROUTES</span><span class="token punctuation">}</span><span class="token operator">></span>
+        <span class="token operator">&#x3C;</span>Header<span class="token operator">/</span><span class="token operator">></span>
+        <span class="token operator">&#x3C;</span>RouterOutlet<span class="token operator">/</span><span class="token operator">></span>
+        <span class="token operator">&#x3C;</span>Footer<span class="token operator">/</span><span class="token operator">></span>
+    <span class="token operator">&#x3C;</span><span class="token operator">/</span>Router<span class="token operator">></span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="prefetch-remotes">Prefetch remotes</h2>
+<h2 id="separate-build-config-for-running-alone">Separate build config for running alone???</h2>
+<h2 id="cache-busting">Cache Busting</h2>
+<h2 id="dynamic-urls---env-variables">Dynamic URLs - env variables</h2>
+<p>I recommend setting your remote application urls in environment variables.
+That way you can change the urls for different environments, and you can set them to localhost for development.</p>
+<p>Create a <em>.env</em> file in your root directory:</p>
+<pre class="language-yaml"><code is:raw="" class="language-yaml">REMOTE_APP1=https<span class="token punctuation">:</span>//example.github.io/remote1
+REMOTE_APP2=http<span class="token punctuation">:</span>//localhost<span class="token punctuation">:</span>8080/remote2</code></pre>
+<p>As you can see, I’m fetching remote1 from the production environment, so I don’t need to start a local server.
+But I want to work on remote2, so I’m pointing it to the local version.</p>
+<p>On the server, you would set these environment variables in your CI pipeline (github, vercel, etc).
+And when they are set in your CI environment, they take priority over anything in your .env file.
+So you can check in the lcoal .env if you wish.</p>
+<p>Here is an example of loading the environment variables in webpack:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">const</span> DefinePlugin <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'webpack/lib/DefinePlugin'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'dotenv'</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">config</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> remoteVars <span class="token operator">=</span> Object<span class="token punctuation">.</span><span class="token function">fromEntries</span><span class="token punctuation">(</span>
+    Object<span class="token punctuation">.</span><span class="token function">entries</span><span class="token punctuation">(</span>process<span class="token punctuation">.</span>env<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">filter</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">[</span>key<span class="token punctuation">]</span></span><span class="token punctuation">)</span> <span class="token operator">=></span> key<span class="token punctuation">.</span><span class="token function">indexOf</span><span class="token punctuation">(</span><span class="token string">'REMOTE_'</span><span class="token punctuation">)</span> <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+module<span class="token punctuation">.</span>exports <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token operator">...</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">plugins</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+        <span class="token keyword">new</span> <span class="token class-name">DefinePlugin</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+            <span class="token string-property property">'REMOTE_CONFIG'</span><span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>remoteVars<span class="token punctuation">)</span>
+        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">]</span>
+<span class="token punctuation">}</span></code></pre>
+<p><code>require('dotenv').config();</code> loads the environment variables from your <em>.env</em> file, and puts them into the
+<em>process.env</em> object.
+Then, instead of hardcoding each variable key in the script, I am grabbing all keys that start with <em>REMOTE_</em>.
+And finally the <em>DefinePlugin</em> will inject the variables into your code.
+In this example, I’m injecting an object called <em>REMOTE_CONFIG</em>, which would end up getting compiled as a global
+variable like:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token keyword">const</span> <span class="token constant">REMOTE_CONFIG</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token string-property property">'REMOTE_APP1'</span><span class="token operator">:</span> <span class="token string">'https://example.github.io/remote1'</span><span class="token punctuation">,</span>
+    <span class="token string-property property">'REMOTE_APP2'</span><span class="token operator">:</span> <span class="token string">'http://localhost:8080/remote2'</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>Then you can use anywhere in your code:</p>
+<pre class="language-javascript"><code is:raw="" class="language-javascript"><span class="token constant">REMOTE_CONFIG</span><span class="token punctuation">[</span><span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">REMOTE_APP1</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token comment">// https://example.github.io/remote1</span></code></pre>
+<p>If your using typescript, make sure to declare the global variable:</p>
+<pre class="language-typescript"><code is:raw="" class="language-typescript"><span class="token keyword">declare</span> global <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> <span class="token constant">REMOTE_CONFIG</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token punctuation">[</span>key<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">]</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">}</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+</main>
+</body></html>

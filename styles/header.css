@@ -1,0 +1,26 @@
+.header {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 30px;
+}
+
+.header-content {
+    display: flex;
+    padding: 10px 0;
+    align-items: baseline;
+    background-color: #eff1f4;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.header-content a {
+    padding: 0 15px;
+    letter-spacing: 2px;
+}
+
+.header-content a.header-title {
+    font-size: 24px;
+    padding: 0 50px 0 0;
+    letter-spacing: 2px;
+    font-weight: 600;
+}
