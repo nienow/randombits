@@ -1,9 +1,6 @@
-const path = require('path');
 const fs = require('fs-extra');
-var multistream = require('multistream');
-const Readable = require('stream').Readable;
 const injectHTML = require("node-inject-html").default;
-var crypto = require('crypto');
+const crypto = require('crypto');
 
 function writeCommonCss(name) {
     const content = fs.readFileSync(`styles/${name}`, {encoding: 'utf8'});
@@ -34,32 +31,13 @@ const header = fs.readFileSync('layout/header.html', {encoding: 'utf8'});
 const footer = fs.readFileSync('layout/footer.html', {encoding: 'utf8'});
 
 function renderHTML(file, newFile) {
-    // return new Promise(resolve => {
-    //     console.log('writing: ' + newFile);
-        // var output = fs.createWriteStream(newFile);
     let html = fs.readFileSync(file, {encoding: 'utf8'});
-
-        const content = injectHTML(html,  {
-            bodyStart: header,
-            bodyEnd: footer,
-            headEnd: styleLinks.join('')
-        });
-
-    // if (!html.contains(/<header[^>]*>/)) {
-    //     html = html.replace(/<body[^>]*>/)
-    // }
-
-        fs.outputFileSync(newFile, content);
-        // const ms = new multistream([
-        //     Readable.from(header),
-        //     fs.createReadStream(file),
-        //     Readable.from(footer)
-        // ]);
-        // ms.pipe(output);
-        // ms.on('end', () => {
-        //     resolve();
-        // });
-    // });
+    const content = injectHTML(html,  {
+        bodyStart: header,
+        bodyEnd: footer,
+        headEnd: styleLinks.join('')
+    });
+    fs.outputFileSync(newFile, content);
 }
 
 fileList.forEach(file => {
