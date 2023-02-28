@@ -1,3 +1,4 @@
+const path = require('path');
 const fs = require('fs-extra');
 const injectHTML = require("node-inject-html").default;
 const crypto = require('crypto');
@@ -31,13 +32,16 @@ const header = fs.readFileSync('layout/header.html', {encoding: 'utf8'});
 const footer = fs.readFileSync('layout/footer.html', {encoding: 'utf8'});
 
 function renderHTML(file, newFile) {
+    const fileName = path.basename(file);
     let html = fs.readFileSync(file, {encoding: 'utf8'});
-    const content = injectHTML(html,  {
-        bodyStart: header,
-        bodyEnd: footer,
-        headEnd: styleLinks.join('')
-    });
-    fs.outputFileSync(newFile, content);
+    if (!fileName.startsWith('_')) {
+        html = injectHTML(html,  {
+            bodyStart: header,
+            bodyEnd: footer,
+            headEnd: styleLinks.join('')
+        });
+    }
+    fs.outputFileSync(newFile, html);
 }
 
 fileList.forEach(file => {
