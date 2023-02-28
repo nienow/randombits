@@ -25,7 +25,7 @@ function getPages(dir) {
     });
 }
 
-getPages('pages');
+getPages('content');
 
 const header = fs.readFileSync('layout/header.html', {encoding: 'utf8'});
 const footer = fs.readFileSync('layout/footer.html', {encoding: 'utf8'});
