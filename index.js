@@ -41,7 +41,7 @@ function renderHTML(file, newFile) {
 }
 
 fileList.forEach(file => {
-    const newPath = file.replace(/^pages/, 'dist');
+    const newPath = file.replace(/^content/, 'dist');
     if (file.endsWith('.html')) {
        renderHTML(file, newPath);
     } else {
