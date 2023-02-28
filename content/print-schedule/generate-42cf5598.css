@@ -1,0 +1,1 @@
+@media print{@page{margin:0}}body{font-family:Helvetica}.title{font-size:.4in;font-weight:700;text-align:center;letter-spacing:2px;margin-bottom:.35in}.page{page-break-after:always;margin:.75in}.hour{display:flex}.time{font-size:18px;flex:0 0 auto;align-self:end;width:40px}.line{flex:1 1 auto;border-bottom:1px solid black}
