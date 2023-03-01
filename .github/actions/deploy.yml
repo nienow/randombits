@@ -1,0 +1,21 @@
+name: 'Push to another repo'
+description: 'Copy and push files to another repository'
+inputs:
+  source-files:
+    description: 'The files to copy'
+    default: 'dist/.'
+    required: false
+  destination-branch:
+    description: 'Destination branch name'
+    default: 'main'
+    required: false
+  destination-directory:
+    description: 'Destination directory'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.source-files }}
+    - ${{ inputs.destination-branch }}
+    - ${{ inputs.destination-directory }}
